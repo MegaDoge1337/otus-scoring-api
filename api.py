@@ -9,7 +9,7 @@ import hashlib
 import uuid
 from argparse import ArgumentParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime
+from abc import ABC, abstractmethod
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -37,29 +37,15 @@ GENDERS = {
 }
 
 
-class Field:
-    def __init__(self, required=False, nullable=True):
+class Field(ABC):
+    def __init__(self, required=False, nullable=False):
         self.required = required
         self.nullable = nullable
-        self.name = None
 
-    def __set_name__(self, owner, name):
-        self.name = name
-
-    def __get__(self, instance, owner):
-        if instance is None:
-            return self
-        return instance.__dict__.get(self.name)
-
-    def __set__(self, instance, value):
-        self.validate(value)
-        instance.__dict__[self.name] = value
-
+    @abstractmethod
     def validate(self, value):
-        if self.required and value is None:
-            raise ValueError(f"Field `{self.name}` is required")
         if not self.nullable and value is None:
-            raise ValueError(f"Field `{self.name}` cannot be None")
+            raise ValueError("Field `{name}` cannot be None")
 
 
 class CharField(Field):
@@ -67,7 +53,7 @@ class CharField(Field):
         super().validate(value)
         if value is not None:
             if not isinstance(value, str):
-                raise TypeError(f"Field `{self.name}` must be string")
+                raise TypeError("Field `{name}` must be string")
 
 
 class ArgumentsField(Field):
@@ -75,7 +61,7 @@ class ArgumentsField(Field):
         super().validate(value)
         if value is not None:
             if not isinstance(value, dict):
-                raise TypeError(f"Field `{self.name}` must be dictionary (json object)")
+                raise TypeError("Field `{name}` must be dictionary (json object)")
 
 
 class EmailField(CharField):
@@ -83,7 +69,7 @@ class EmailField(CharField):
         super().validate(value)
         if value is not None:
             if '@' not in value:
-                raise ValueError(f"Field `{self.name}` must be a valid email address (contains '@')")
+                raise ValueError("Field `{name}` must be a valid email address (contains '@')")
 
 
 class PhoneField(Field):
@@ -91,11 +77,11 @@ class PhoneField(Field):
         super().validate(value)
         if value is not None:
             if not isinstance(value, (str, int)):
-                raise TypeError(f"Field `{self.name}` must be string or integer")
+                raise TypeError("Field `{name}` must be string or integer")
             if len(str(value)) != 11:
-                raise ValueError(f"Field `{self.name}` must be 11 charactes long")
+                raise ValueError("Field `{name}` must be 11 charactes long")
             if str(value).startswith('7'):
-                raise ValueError(f"Field `{self.name}` must starts with '7'")
+                raise ValueError("Field `{name}` must starts with '7'")
 
 
 class DateField(Field):
@@ -103,9 +89,9 @@ class DateField(Field):
         super().validate(value)
         if value is not None:
             try:
-                datetime.strptime(str(value), "%d.%m.%Y")
+                datetime.datetime.strptime(str(value), "%d.%m.%Y")
             except ValueError:
-                raise ValueError(f"Field `{self.name}` contains invalid date format (expected 'DD.MM.YYYY')")
+                raise ValueError("Field `{name}` contains invalid date format (expected 'DD.MM.YYYY')")
 
 
 class BirthDayField(Field):
@@ -115,14 +101,14 @@ class BirthDayField(Field):
             date = None
 
             try:
-                date = datetime.strptime(str(value), "%d.%m.%Y")
+                date = datetime.datetime.strptime(str(value), "%d.%m.%Y")
             except ValueError:
-                raise ValueError(f"Field `{self.name}` contains invalid date format (expected 'DD.MM.YYYY')")
+                raise ValueError("Field `{name}` contains invalid date format (expected 'DD.MM.YYYY')")
             
-            years_delta = datetime.now().year - date.year
+            years_delta = datetime.datetime.now().year - date.year
 
             if years_delta > 70 or years_delta < -70:
-                raise ValueError(f"Field `{self.name}` must be a date from which no more than 70 years have passed")
+                raise ValueError("Field `{name}` must be a date from which no more than 70 years have passed")
 
 
 class GenderField(Field):
@@ -130,9 +116,9 @@ class GenderField(Field):
         super().validate(value)
         if value is not None:
             if not isinstance(value, int):
-                raise TypeError(f"Field `{self.name}` must be integer")
+                raise TypeError("Field `{name}` must be integer")
             if value < 0 or value > 2:
-                raise ValueError(f"Field `{self.name}` must be 0, 1 or 2.")
+                raise ValueError("Field `{name}` must be in (0, 1, 2)")
 
 
 class ClientIDsField(Field):
@@ -140,17 +126,51 @@ class ClientIDsField(Field):
         super().validate(value)
         if value is not None:
             if not isinstance(value, list):
-                raise TypeError(f"Field `{self.name}` must be list")
+                raise TypeError("Field `{name}` must be list")
             if not all(isinstance(item, int) for item in value):
-                raise ValueError(f"Field `{self.name}` must contains only integers")
+                raise ValueError("Field `{name}` must contains only integers")
 
 
-class ClientsInterestsRequest:
+class MetaRequest(type):
+    def __new__(cls, name, bases, attrs):
+        fields = {}
+        for key, value in attrs.items():
+            if isinstance(value, Field):
+                fields[key] = value
+        attrs["fields"] = fields
+        return super().__new__(cls, name, bases, attrs)
+
+
+class BaseRequest(metaclass=MetaRequest):
+    def __init__(self, request_fields):
+        self.errors = []
+
+        for field_name, field in self.fields.items():
+
+            if field_name not in request_fields and field.required:
+                self.errors.append(f"Field `{field_name}` is required")
+                continue
+
+            value = request_fields.get(field_name)
+
+            try:
+                field.validate(value)
+            except TypeError as ex:
+                self.errors.append(str(ex).format(name=field_name))
+                continue
+            except ValueError as ex:
+                self.errors.append(str(ex).format(name=field_name))
+                continue
+
+            setattr(self, field_name, value)
+
+
+class ClientsInterestsRequest(BaseRequest):
     client_ids = ClientIDsField(required=True)
     date = DateField(required=False, nullable=True)
 
 
-class OnlineScoreRequest:
+class OnlineScoreRequest(BaseRequest):
     first_name = CharField(required=False, nullable=True)
     last_name = CharField(required=False, nullable=True)
     email = EmailField(required=False, nullable=True)
@@ -159,7 +179,7 @@ class OnlineScoreRequest:
     gender = GenderField(required=False, nullable=True)
 
 
-class MethodRequest:
+class MethodRequest(BaseRequest):
     account = CharField(required=False, nullable=True)
     login = CharField(required=True, nullable=True)
     token = CharField(required=True, nullable=True)
@@ -181,6 +201,37 @@ def check_auth(request):
 
 def method_handler(request, ctx, store):
     response, code = None, None
+
+    request_body = request["body"]
+
+    method_request = MethodRequest(request_body)
+
+    if method_request.errors:
+        response, code = method_request.errors, 422
+        return response, code
+    
+    if not check_auth(method_request):
+        response, code = "Forbidden", 403
+        return response, code
+
+    if method_request.method == "clients_interests":
+        arguments = method_request.arguments
+        clients_interests_request = ClientsInterestsRequest(arguments)
+
+        if clients_interests_request.errors:
+            response, code = clients_interests_request.errors, 422
+            return response, code
+        
+    if method_request.method == "online_score":
+        arguments = method_request.arguments
+        online_score_request = OnlineScoreRequest(arguments)
+
+        if online_score_request.errors:
+            response, code = online_score_request.errors, 422
+            return response, code
+
+    response, code = {}, 200
+
     return response, code
 
 
@@ -202,7 +253,6 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
             request = json.loads(data_string)
         except:
             code = BAD_REQUEST
-
         if request:
             path = self.path.strip("/")
             logging.info("%s: %s %s" % (self.path, data_string, context["request_id"]))
@@ -214,7 +264,7 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
                     code = INTERNAL_ERROR
             else:
                 code = NOT_FOUND
-
+        
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
