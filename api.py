@@ -36,7 +36,7 @@ GENDERS = {
 }
 
 
-class Field():
+class Field:
     def __init__(self, required=False, nullable=False):
         self.required = required
         self.nullable = nullable
@@ -66,8 +66,10 @@ class EmailField(CharField):
     def validate(self, value):
         super().validate(value)
         if value is not None:
-            if '@' not in value:
-                raise ValueError("Field `{name}` must be a valid email address (contains '@')")
+            if "@" not in value:
+                raise ValueError(
+                    "Field `{name}` must be a valid email address (contains '@')"
+                )
 
 
 class PhoneField(Field):
@@ -78,7 +80,7 @@ class PhoneField(Field):
                 raise TypeError("Field `{name}` must be string or integer")
             if len(str(value)) != 11:
                 raise ValueError("Field `{name}` must be 11 charactes long")
-            if not str(value).startswith('7'):
+            if not str(value).startswith("7"):
                 raise ValueError("Field `{name}` must starts with '7'")
 
 
@@ -89,7 +91,9 @@ class DateField(Field):
             try:
                 datetime.datetime.strptime(str(value), "%d.%m.%Y")
             except ValueError:
-                raise ValueError("Field `{name}` contains invalid date format (expected 'DD.MM.YYYY')")
+                raise ValueError(
+                    "Field `{name}` contains invalid date format (expected 'DD.MM.YYYY')"
+                )
 
 
 class BirthDayField(Field):
@@ -101,12 +105,16 @@ class BirthDayField(Field):
             try:
                 date = datetime.datetime.strptime(str(value), "%d.%m.%Y")
             except ValueError:
-                raise ValueError("Field `{name}` contains invalid date format (expected 'DD.MM.YYYY')")
+                raise ValueError(
+                    "Field `{name}` contains invalid date format (expected 'DD.MM.YYYY')"
+                )
 
             years_delta = datetime.datetime.now().year - date.year
 
             if years_delta > 70 or years_delta < -70:
-                raise ValueError("Field `{name}` must be a date from which no more than 70 years have passed")
+                raise ValueError(
+                    "Field `{name}` must be a date from which no more than 70 years have passed"
+                )
 
 
 class GenderField(Field):
@@ -198,7 +206,12 @@ class OnlineScoreRequest(BaseRequest):
     birthday = BirthDayField(required=False, nullable=True)
     gender = GenderField(required=False, nullable=True)
 
-    pairs_validation = [("phone", "email"), ("first_name", "last_name"), ("gender", "birthday")]
+    pairs_validation = [
+        ("phone", "email"),
+        ("first_name", "last_name"),
+        ("gender", "birthday"),
+    ]
+
 
 class MethodRequest(BaseRequest):
     account = CharField(required=False, nullable=True)
@@ -214,9 +227,13 @@ class MethodRequest(BaseRequest):
 
 def check_auth(request):
     if request.is_admin:
-        digest = hashlib.sha512((datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).encode('utf-8')).hexdigest()
+        digest = hashlib.sha512(
+            (datetime.datetime.now().strftime("%Y%m%d%H") + ADMIN_SALT).encode("utf-8")
+        ).hexdigest()
     else:
-        digest = hashlib.sha512((request.account + request.login + SALT).encode('utf-8')).hexdigest()
+        digest = hashlib.sha512(
+            (request.account + request.login + SALT).encode("utf-8")
+        ).hexdigest()
     return digest == request.token
 
 
@@ -271,7 +288,7 @@ def method_handler(request, ctx, store):
             birthday=online_score_request.birthday,
             gender=online_score_request.gender,
             first_name=online_score_request.first_name,
-            last_name=online_score_request.last_name
+            last_name=online_score_request.last_name,
         )
 
         ctx["has"] = online_score_request.not_empty_fields
@@ -279,37 +296,37 @@ def method_handler(request, ctx, store):
         response, code = {"score": score}, 200
         return response, code
 
-
-
     response, code = {}, 400
 
     return response, code
 
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
-    router = {
-        "method": method_handler
-    }
+    router = {"method": method_handler}
     store = None
 
     def get_request_id(self, headers):
-        return headers.get('HTTP_X_REQUEST_ID', uuid.uuid4().hex)
+        return headers.get("HTTP_X_REQUEST_ID", uuid.uuid4().hex)
 
     def do_POST(self):
         response, code = {}, OK
         context = {"request_id": self.get_request_id(self.headers)}
         request = None
         try:
-            data_string = self.rfile.read(int(self.headers['Content-Length']))
+            data_string = self.rfile.read(int(self.headers["Content-Length"]))
             request = json.loads(data_string)
         except Exception:
             code = BAD_REQUEST
         if request:
             path = self.path.strip("/")
-            logging.info("{}: {} {}".format(self.path, data_string, context["request_id"]))
+            logging.info(
+                "{}: {} {}".format(self.path, data_string, context["request_id"])
+            )
             if path in self.router:
                 try:
-                    response, code = self.router[path]({"body": request, "headers": self.headers}, context, self.store)
+                    response, code = self.router[path](
+                        {"body": request, "headers": self.headers}, context, self.store
+                    )
                 except Exception as e:
                     logging.exception("Unexpected error: %s" % e)
                     code = INTERNAL_ERROR
@@ -325,7 +342,7 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
             r = {"error": response or ERRORS.get(code, "Unknown Error"), "code": code}
         context.update(r)
         logging.info(context)
-        self.wfile.write(json.dumps(r).encode('utf-8'))
+        self.wfile.write(json.dumps(r).encode("utf-8"))
         return
 
 
@@ -334,8 +351,12 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--port", action="store", type=int, default=8080)
     parser.add_argument("-l", "--log", action="store", default=None)
     args = parser.parse_args()
-    logging.basicConfig(filename=args.log, level=logging.INFO,
-                        format='[%(asctime)s] %(levelname).1s %(message)s', datefmt='%Y.%m.%d %H:%M:%S')
+    logging.basicConfig(
+        filename=args.log,
+        level=logging.INFO,
+        format="[%(asctime)s] %(levelname).1s %(message)s",
+        datefmt="%Y.%m.%d %H:%M:%S",
+    )
     server = HTTPServer(("localhost", args.port), MainHTTPHandler)
     logging.info("Starting server at %s" % args.port)
     try:

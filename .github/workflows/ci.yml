@@ -19,8 +19,10 @@ jobs:
           virtualenvs-in-project: true
       - name: install dependencies
         run: poetry install
-      - name: run formatter
+      - name: run linter
         run: poetry run ruff check
+      - name: run formatter
+        run: poetry run black .
       - name: check import sorting
         run: poetry run isort .
       - name: run tests
