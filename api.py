@@ -9,7 +9,6 @@ import hashlib
 import uuid
 from argparse import ArgumentParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from abc import ABC, abstractmethod
 import scoring
 
 SALT = "Otus"
@@ -38,12 +37,11 @@ GENDERS = {
 }
 
 
-class Field(ABC):
+class Field():
     def __init__(self, required=False, nullable=False):
         self.required = required
         self.nullable = nullable
 
-    @abstractmethod
     def validate(self, value):
         if not self.nullable and value is None:
             raise ValueError("Field `{name}` cannot be None")
