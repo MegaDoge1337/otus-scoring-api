@@ -1,4 +1,4 @@
-name: otus-zeabur-challenge
+name: otus-scoring-api-validation
 on:
   push:
 
