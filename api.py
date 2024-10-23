@@ -228,7 +228,7 @@ def method_handler(request, ctx, store):
     method_request = MethodRequest(request_body)
 
     if method_request.errors:
-        response, code = method_request.errors, 422
+        response, code = "\n".join(method_request.errors), 422
         return response, code
 
     if not check_auth(method_request):
@@ -240,7 +240,7 @@ def method_handler(request, ctx, store):
         clients_interests_request = ClientsInterestsRequest(arguments)
 
         if clients_interests_request.errors:
-            response, code = clients_interests_request.errors, 422
+            response, code = "\n".join(clients_interests_request.errors), 422
             return response, code
 
         interests = {}
@@ -257,7 +257,7 @@ def method_handler(request, ctx, store):
         online_score_request = OnlineScoreRequest(arguments)
 
         if online_score_request.errors:
-            response, code = online_score_request.errors, 422
+            response, code = "\n".join(online_score_request.errors), 422
             return response, code
 
         if method_request.is_admin:
