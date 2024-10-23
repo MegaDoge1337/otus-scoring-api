@@ -65,7 +65,7 @@ python api.py --log log.log
 ## Эксплуатация
 
 Сервис, по умолчанию, предоставляет доступ по маршруту `/method`. Формат запроса следующий:
-```json
+```py
 {
   "account": "horns&hoofs",         # имя аккаунта (строка, поле опционально, может быть пустым)
   "login": "h&f",                   # логин аккаунта (строка, поле обязательно, может быть пустым)
@@ -87,7 +87,7 @@ python api.py --log log.log
 #### Метод `online_score`
 
 Формат запроса для метода `online_score`:
-```json
+```py
 {
   ...
 
@@ -118,7 +118,7 @@ python api.py --log log.log
 #### Метод `clients_interests`
 
 Формат запроса для метода `clients_interests`:
-```json
+```py
 {
   ...
 
