@@ -1,14 +1,13 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-import abc
-import json
 import datetime
-import logging
 import hashlib
+import json
+import logging
 import uuid
 from argparse import ArgumentParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
 import scoring
 
 SALT = "Otus"
@@ -103,7 +102,7 @@ class BirthDayField(Field):
                 date = datetime.datetime.strptime(str(value), "%d.%m.%Y")
             except ValueError:
                 raise ValueError("Field `{name}` contains invalid date format (expected 'DD.MM.YYYY')")
-            
+
             years_delta = datetime.datetime.now().year - date.year
 
             if years_delta > 70 or years_delta < -70:
@@ -173,7 +172,7 @@ class BaseRequest(metaclass=MetaRequest):
 
         if self.errors:
             return None
-        
+
         if hasattr(self, "pairs_validation"):
             pairs = getattr(self, "pairs_validation")
             for left, right in pairs:
@@ -182,7 +181,7 @@ class BaseRequest(metaclass=MetaRequest):
                     right_value = getattr(self, right)
                     if left_value is not None and right_value is not None:
                         return None
-            
+
             self.errors.append(f"No valid pair for request {pairs}")
 
 
@@ -231,7 +230,7 @@ def method_handler(request, ctx, store):
     if method_request.errors:
         response, code = method_request.errors, 422
         return response, code
-    
+
     if not check_auth(method_request):
         response, code = "Forbidden", 403
         return response, code
@@ -243,16 +242,16 @@ def method_handler(request, ctx, store):
         if clients_interests_request.errors:
             response, code = clients_interests_request.errors, 422
             return response, code
-        
+
         interests = {}
         for cid in clients_interests_request.client_ids:
             interests[str(cid)] = scoring.get_interests(store=store, cid=cid)
-        
+
         ctx["nclients"] = len(clients_interests_request.client_ids)
 
         response, code = interests, 200
         return response, code
-        
+
     if method_request.method == "online_score":
         arguments = method_request.arguments
         online_score_request = OnlineScoreRequest(arguments)
@@ -260,7 +259,7 @@ def method_handler(request, ctx, store):
         if online_score_request.errors:
             response, code = online_score_request.errors, 422
             return response, code
-        
+
         if method_request.is_admin:
             response, code = {"score": 42}, 200
             return response, code
@@ -279,8 +278,8 @@ def method_handler(request, ctx, store):
 
         response, code = {"score": score}, 200
         return response, code
-        
-        
+
+
 
     response, code = {}, 400
 
@@ -303,11 +302,11 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
         try:
             data_string = self.rfile.read(int(self.headers['Content-Length']))
             request = json.loads(data_string)
-        except:
+        except Exception:
             code = BAD_REQUEST
         if request:
             path = self.path.strip("/")
-            logging.info("%s: %s %s" % (self.path, data_string, context["request_id"]))
+            logging.info("{}: {} {}".format(self.path, data_string, context["request_id"]))
             if path in self.router:
                 try:
                     response, code = self.router[path]({"body": request, "headers": self.headers}, context, self.store)
@@ -316,7 +315,7 @@ class MainHTTPHandler(BaseHTTPRequestHandler):
                     code = INTERNAL_ERROR
             else:
                 code = NOT_FOUND
-        
+
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
