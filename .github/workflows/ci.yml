@@ -1,4 +1,4 @@
-name: otus-scoring-api-validation
+name: otus-scoring-api
 on:
   push:
 
