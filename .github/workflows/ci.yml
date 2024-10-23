@@ -1,0 +1,27 @@
+name: otus-zeabur-challenge
+on:
+  push:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: install poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: install dependencies
+        run: poetry install
+      - name: run formatter
+        run: poetry run ruff check
+      - name: check import sorting
+        run: poetry run isort .
+      - name: run tests
+        run: python -m unittest
