@@ -10,6 +10,7 @@ import uuid
 from argparse import ArgumentParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from abc import ABC, abstractmethod
+import scoring
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -80,7 +81,7 @@ class PhoneField(Field):
                 raise TypeError("Field `{name}` must be string or integer")
             if len(str(value)) != 11:
                 raise ValueError("Field `{name}` must be 11 charactes long")
-            if str(value).startswith('7'):
+            if not str(value).startswith('7'):
                 raise ValueError("Field `{name}` must starts with '7'")
 
 
@@ -127,6 +128,8 @@ class ClientIDsField(Field):
         if value is not None:
             if not isinstance(value, list):
                 raise TypeError("Field `{name}` must be list")
+            if not value:
+                raise TypeError("Field `{name}` cannot be empty")
             if not all(isinstance(item, int) for item in value):
                 raise ValueError("Field `{name}` must contains only integers")
 
@@ -144,6 +147,8 @@ class MetaRequest(type):
 class BaseRequest(metaclass=MetaRequest):
     def __init__(self, request_fields):
         self.errors = []
+        self.valid_fields = []
+        self.not_empty_fields = []
 
         for field_name, field in self.fields.items():
 
@@ -163,6 +168,24 @@ class BaseRequest(metaclass=MetaRequest):
                 continue
 
             setattr(self, field_name, value)
+            self.valid_fields.append(field_name)
+
+            if value is not None:
+                self.not_empty_fields.append(field_name)
+
+        if self.errors:
+            return None
+        
+        if hasattr(self, "pairs_validation"):
+            pairs = getattr(self, "pairs_validation")
+            for left, right in pairs:
+                if left in self.valid_fields and right in self.valid_fields:
+                    left_value = getattr(self, left)
+                    right_value = getattr(self, right)
+                    if left_value is not None and right_value is not None:
+                        return None
+            
+            self.errors.append(f"No valid pair for request {pairs}")
 
 
 class ClientsInterestsRequest(BaseRequest):
@@ -178,6 +201,7 @@ class OnlineScoreRequest(BaseRequest):
     birthday = BirthDayField(required=False, nullable=True)
     gender = GenderField(required=False, nullable=True)
 
+    pairs_validation = [("phone", "email"), ("first_name", "last_name"), ("gender", "birthday")]
 
 class MethodRequest(BaseRequest):
     account = CharField(required=False, nullable=True)
@@ -222,6 +246,15 @@ def method_handler(request, ctx, store):
             response, code = clients_interests_request.errors, 422
             return response, code
         
+        interests = {}
+        for cid in clients_interests_request.client_ids:
+            interests[str(cid)] = scoring.get_interests(store=store, cid=cid)
+        
+        ctx["nclients"] = len(clients_interests_request.client_ids)
+
+        response, code = interests, 200
+        return response, code
+        
     if method_request.method == "online_score":
         arguments = method_request.arguments
         online_score_request = OnlineScoreRequest(arguments)
@@ -229,8 +262,29 @@ def method_handler(request, ctx, store):
         if online_score_request.errors:
             response, code = online_score_request.errors, 422
             return response, code
+        
+        if method_request.is_admin:
+            response, code = {"score": 42}, 200
+            return response, code
 
-    response, code = {}, 200
+        score = scoring.get_score(
+            store=store,
+            phone=online_score_request.phone,
+            email=online_score_request.email,
+            birthday=online_score_request.birthday,
+            gender=online_score_request.gender,
+            first_name=online_score_request.first_name,
+            last_name=online_score_request.last_name
+        )
+
+        ctx["has"] = online_score_request.not_empty_fields
+
+        response, code = {"score": score}, 200
+        return response, code
+        
+        
+
+    response, code = {}, 400
 
     return response, code
 
