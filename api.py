@@ -9,6 +9,7 @@ from argparse import ArgumentParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import scoring
+from store import RedisStore
 
 SALT = "Otus"
 ADMIN_LOGIN = "admin"
@@ -34,6 +35,8 @@ GENDERS = {
     MALE: "male",
     FEMALE: "female",
 }
+STORAGE_HOST = "localhost"
+STORAGE_PORT = 6379
 
 
 class Field:
@@ -303,7 +306,7 @@ def method_handler(request, ctx, store):
 
 class MainHTTPHandler(BaseHTTPRequestHandler):
     router = {"method": method_handler}
-    store = None
+    store = RedisStore(host=STORAGE_HOST, port=STORAGE_PORT)
 
     def get_request_id(self, headers):
         return headers.get("HTTP_X_REQUEST_ID", uuid.uuid4().hex)

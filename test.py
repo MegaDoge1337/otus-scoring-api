@@ -4,6 +4,7 @@ import hashlib
 import unittest
 
 import api
+from store import RedisStore
 
 
 def cases(cases):
@@ -23,11 +24,11 @@ class TestSuite(unittest.TestCase):
     def setUp(self):
         self.context = {}
         self.headers = {}
-        self.settings = {}
+        self.store = RedisStore(host="localhost", port=6379)
 
     def get_response(self, request):
         return api.method_handler(
-            {"body": request, "headers": self.headers}, self.context, self.settings
+            {"body": request, "headers": self.headers}, self.context, self.store
         )
 
     def set_valid_auth(self, request):
