@@ -38,7 +38,7 @@ def get_score(
 
     # Cache the score for 60 minutes
     store.cache_set(key, score, 60 * 60)
-    return score
+    return float(score)
 
 
 def get_interests(store, cid: str) -> list:
