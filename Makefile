@@ -1,8 +1,11 @@
-PHONY: test, lint, format import-sort
+PHONY: unit-test, func-test, lint, format import-sort
 
 
-test:
-	python -m unittest
+unit-test:
+	python -m unittest ./test/unit/test.py
+
+func-test:
+	python -m unittest ./test/functional/test.py
 
 format:
 	poetry run black .
