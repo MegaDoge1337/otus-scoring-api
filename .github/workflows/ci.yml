@@ -25,9 +25,5 @@ jobs:
         run: poetry run black .
       - name: check import sorting
         run: poetry run isort .
-      - name: show installed packages (poetry)
-        run: poetry show
-      - name: show installed packages (pip)
-        run: pip list
       - name: run tests
-        run: python -m unittest ./test/unit/test.py
+        run: poetry run python -m unittest ./test/unit/test.py
